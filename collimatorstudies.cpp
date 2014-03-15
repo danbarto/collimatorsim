@@ -409,7 +409,7 @@ private:
     aperturelist aperture;
     int case1, case2, start, stop, switcher, maketordered, dontusesix, collimatornumber, mode, firstrun, temp, totalparticles, breaker;
     string completeline;
-    char outfilenameeff[100], temp3[10], inputcollimator[50], collimator[50], inputfort[20], fort[20], orderedtrack[50], allabsorptions[50], allabsorptionsnew[50], firstimpacts[100], firstimpactsnew[100], flukafile[100], flukafilenew[100], outfilenameloss[100], outfileaperture[100], outfilecollimator[100], outfileexceed[100], outfilestrangeloss[100], statisticsfile[100], bugfile[100], particletrack[100], particlefile[100];
+    char outfilenameeff[100], temp3[10], inputcollimator[50], collimator[50], inputfort[20], fort[20], orderedtrack[50], allabsorptions[50], allabsorptionsnew[50], firstimpacts[100], firstimpactsnew[100], flukafile[100], flukafilenew[100], outfilenameloss[100], outfileaperture[100], outfilecollimator[100], outfileexceed[100], outfilestrangeloss[100], statisticsfile[100], bugfile[100], particletrack[100], particlefile[100], aperturefile[50];
     float puffer, temp4, temp5, temp6, temp7;
 public:
     run(){
@@ -589,7 +589,8 @@ public:
     }
     
     int checkfileexistance(){
-        if(checkfile("aperture2.dat")==0)return 0;
+        sprintf(aperturefile,"%s","aperture2.dat");
+        if(checkfile(aperturefile)==0)return 0;
         for(int i=start;i<=stop;i++){
             if(mode==1){
                 sprintf( inputcollimator, "%s%u%s",   "list_coll_", i, ".data" );
