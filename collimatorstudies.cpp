@@ -589,6 +589,7 @@ public:
     }
     
     int checkfileexistance(){
+        if(checkfile("aperture2.dat")==0)return 0;
         for(int i=start;i<=stop;i++){
             if(mode==1){
                 sprintf( inputcollimator, "%s%u%s",   "list_coll_", i, ".data" );
