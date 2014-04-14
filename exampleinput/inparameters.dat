@@ -1,13 +1,23 @@
-data1.dat
-0 0 1
-1
-1
-1
-Collimatorpositions(center),order:/HP/HS1/VP/VS1/HS2/VS2
-6
+highparttest.dat
+1 0 1
+2
+2
+2
+Collimatorpositions(center):
+8
+TCP.H.1
 315.58
-328.49
-317.46
-339.06
-389.26
-367.66
+TCS.H.1
+330.49
+TCP.V.1
+315.68
+TCS.V.1
+328.99
+TCS.H.2
+386.00
+TCS.V.2
+364.43
+TCS.V.3
+352.50
+TCS.H.3
+362.43

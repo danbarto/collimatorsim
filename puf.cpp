@@ -61,120 +61,87 @@ int checkfile(char filename[100]){
 class allcolls{
 private:
     string collname,material;
-    int collnumber, type, absorbedParticles; //type 0=no collimator, 1=H, 2=V, 3=H+V
-    float s_center, s_front, s_back, length, halfGap;
+    int collnumber, type; //type 0=no collimator, 1=H, 2=V, 3=H+V
+    double position, length, openingSx, openingSy, openingMx, openingMy, emittance, betaX, betaY,angleR1,angleR2,anglePart,ipApCol,epsX,epsY;
     
 public:
     allcolls(){
-        collname="";material="";collnumber=0;type=0;s_center=0.;length=0.;s_front=s_center-length/2.;s_back=s_center+length/2.;halfGap=0.;absorbedParticles=0;
+        collname="";material="";collnumber=0;type=0;position=0.;length=0.;openingSx=0.;openingSy=0.;betaX=0.;betaY=0.;openingMx=0.;openingMy=0.;
     }
-    allcolls(string name, string mat, int number, int t, float pos, float len, float op){
-        collname=name;material=mat;collnumber=number;type=t;s_center=pos;length=len;s_front=pos-len/2.;s_back=pos-len/2.;halfGap=op;absorbedParticles=0;
-    }
-    allcolls(string name, int num, float pos){
-        collname=name;material="";collnumber=num;type=0;s_center=pos;length=0.;s_front=0.;s_back=0.;halfGap=0.;absorbedParticles=0;
+    allcolls(string name, string mat, int number, int t, double pos, double len, double Sx, double Sy, double bX, double bY, double Mx, double My){
+        collname=name;material=mat;collnumber=number;type=t;position=pos;length=len;openingSx=Sx;openingSy=Sy;betaX=bX;betaY=bY;openingMx=Mx;openingMy=My;
     }
     
-    int absorbedInColl(double spos){
-        if(spos>=s_front-0.01 && spos <=s_back+0.01){
-            absorbedParticles++;
-            return collnumber;
-        }
-        else return 0;
-    }
     
     int findColl(double givPosLast, double givPosAct){ //check if BOTH positions are in a collimator area (safety check, should be true)
-        if(givPosLast>=s_front-0.01 && givPosLast<=s_back+0.01 && givPosAct>=s_front-0.01 && givPosAct<=s_back+0.01) return 1;
+        if(givPosLast>=position-length-0.001 && givPosLast<=position+length+0.001 && givPosAct>=position-length-0.001 && givPosAct<=position+length+0.001) return collnumber;
         else return 0;
     }
-//    void getOpening(double opX, double opY){
-//        opX=openingMx;
-//        opY=openingMy;
-//    }
-    int isInRightArea(double aperture, double lX, double aX, double lY, double aY){
-        float ipApCol, angleR1, angleR2,anglePart;
-        ipApCol=sqrt(aperture*aperture-halfGap*halfGap);
-        angleR1=atan((ipApCol-lX)/(2.*halfGap));
-        angleR2=atan((ipApCol+lX)/(2.*halfGap));
+    void getOpening(double opX, double opY){
+        opX=openingMx;
+        opY=openingMy;
+    }
+    int isInRightArea(double aperture, double opening, double lX, double aX, double lY, double aY){
+        ipApCol=sqrt(aperture*aperture-opening*opening);
+        angleR1=atan((ipApCol-lX)/(2.*opening));
+        angleR2=atan((ipApCol+lX)/(2.*opening));
         anglePart=atan((aX-lX)/(aY-lY));
         if(anglePart<angleR1&&anglePart>angleR2){
-            return collnumber; //absorbed
+            return 1; //absorbed
         }
         else return 0;
     }
     
-//    void writeemittance(double ex, double ey){
-//        epsX=ex;
-//        epsY=ey;
-//    }
-    
-    void addAbsorbed(){
-        absorbedParticles++;
-    }
-    int getAbsorbed(){
-        return absorbedParticles;
-    }
-    
-    string getName(){
-        return collname;
-    }
-    
-    float getSfront(){return s_front;}
-    float getSback(){return s_back;}
-    float getHalfGap(){return halfGap;}
-    int getType(){return type;}
-    int getCollNumber(){return collnumber;}
-    void ResetAbsorbed(){absorbedParticles=0;}
-    
-    void updateData(string mat, int nT, float len, float op){
-        material=mat;type=nT;length=len;s_front=s_center-len/2.;s_back=s_center+len/2.;halfGap=op;
+    void reademittance(double ex, double ey){
+        epsX=ex;
+        epsY=ey;
     }
     
     int isAbsorbedOrLost(double lastX, double actX, double lastY, double actY, double apX, double apY){ //check if particle did hit the collimator and if it was absorbed
-        if(type==2){
-            //if(lastY*lastY>=halfGap*halfGap){ //check if hit
-                if(actY*actY>lastY*lastY && actY*actY>halfGap*halfGap){
-                    return collnumber; //safely absorbed, should never be the case (std ST case)
+        if(type==1){
+            if(lastY*lastY>=openingMy*openingMy){ //check if hit
+                if(actY*actY>lastY*lastY){
+                    return 1; //safely absorbed, should never be the case (std ST case)
                 }
                 else {
 //                    ipApCol=sqrt(apX*apX-openingMy*openingMy);
 //                    angleR1=atan((ipApCol-lastX)/(2.*openingMy));
 //                    angleR2=atan((ipApCol+lastX)/(2.*openingMy));
 //                    anglePart=atan((actX-lastX)/(actY-lastY));
-                    if(isInRightArea(apX,lastX,actX,lastY,actY)==1){
-                        return collnumber; //absorbed
+                    if(isInRightArea(apX,openingMy,lastX,actX,lastY,actY)==1){
+                        return 1; //absorbed
                     }
                     else return 0; //hit aperture -> lost
                     
                 }
-            //}
-            //else return 97;
+            }
+            else return 97;
         }
-        else if(type==1){
-            //if(lastX*lastX>=halfGap*halfGap){
-                if(actX*actX>lastX*lastX && actX*actX>halfGap*halfGap){
-                    return collnumber;
+        else if(type==2){
+            if(lastX*lastX>=openingMx*openingMx){
+                if(actX*actX>lastX*lastX){
+                    return 1;
                 }
                 else {
-                    if(isInRightArea(apY,lastY,actY,lastX,actX)==1){
-                        return collnumber;
+                    if(isInRightArea(apY,openingMx,lastY,actY,lastX,actX)==1){
+                        return 1;
                     }
                     else return 0;
                 }
-            //}
-            //else return  98;
+            }
+            else return  98;
         }
-        else if(type==3){ // not defined as not possible yet
-            //if(lastX*lastX>=halfGap*halfGap || lastY*lastY>=halfGap*halfGap){
-                if(actX*actX>halfGap*halfGap || actY*actY>halfGap*halfGap){
-                    return collnumber;
+        else if(type==3){
+            if(lastX*lastX>=openingMx*openingMx || lastY*lastY>=openingMy*openingMy){
+                if(actX*actX>openingMx*openingMx || actY*actY>openingMy*openingMy){
+                    return 1;
                 }
                 else return 0;
-            //}
-            //else return 99;
+            }
+            else return 99;
         }
         else{
-            return 0;
+            return 100;
         }
     }
                         
@@ -341,10 +308,6 @@ public:
     void init(){
         itref=parts.begin();
         itlast=parts.begin();
-    }
-    
-    int size(){
-        return parts.size();
     }
     
     void show(){
@@ -536,11 +499,10 @@ private:
     vector<float> collimatorpos, beamprops, lengths;
     vector<string> materials;
     list<partdata> lost, tracklist;
-    list<allcolls> collList;
     aperturelist aperture;
     int case1, case2, start, stop, switcher, maketordered, dontusesix, collimatornumber, mode, firstrun, temp, totalparticles, breaker;
-    string completeline,namepuffer,listLength;
-    char outfilenameeff[100], temp3[10], inputcollimator[50], collimator[50], inputfort[20], fort[20], orderedtrack[50], allabsorptions[50], allabsorptionsnew[50], firstimpacts[100], firstimpactsnew[100], collgaps[50], collgapsnew[50],flukafile[100], flukafilenew[100], outfilenameloss[100], outfileaperture[100], outfilecollimator[100], outfileexceed[100], outfilestrangeloss[100], statisticsfile[100], bugfile[100], particletrack[100], particlefile[100], aperturefile[50];
+    string completeline;
+    char outfilenameeff[100], temp3[10], inputcollimator[50], collimator[50], inputfort[20], fort[20], orderedtrack[50], allabsorptions[50], allabsorptionsnew[50], firstimpacts[100], firstimpactsnew[100], flukafile[100], flukafilenew[100], outfilenameloss[100], outfileaperture[100], outfilecollimator[100], outfileexceed[100], outfilestrangeloss[100], statisticsfile[100], bugfile[100], particletrack[100], particlefile[100], aperturefile[50];
     float puffer, temp4, temp5, temp6, temp7;
 public:
     run(){
@@ -559,8 +521,7 @@ public:
             else if (mode==2) readfortfile();
             if(firstrun==1){
                 readcoll();
-                //makegeom();
-                //writeGeom();
+                makegeom();
                 makeeff();
             }
             if(dontusesix==0)if(sixtrack()==201)return 199;
@@ -568,17 +529,12 @@ public:
             readabsorbed();
             if(dontusesix==0 && maketordered==0){
                 for(int i=1; i<=2; i++){
-                    updateCollimators();
                     sprintf(particlefile, "%s%u%s", "particle",i,".dat");
                     trackrun(particlefile);
                 }
             }
-            else {
-                updateCollimators();
-                trackrun(orderedtrack);
-            }
+            else trackrun(orderedtrack);
             makeoutput();
-            writeGeom();
             filerenameback();
             start++;
         }
@@ -635,24 +591,7 @@ public:
                 }
             while(aperture.showsnow() > party.shows()){ // if particle is in the right ring section, proceed through the track-list and check for losses
                 if(party.listend()==1){ // if the track-list end is reached, check if particle is absorbed or sth else happens
-                    int listLength;
-                    listLength=party.size();
-                    if(listLength>1){
-                        double sB,xB,yB;
-                        party.dec();
-                        sB=party.showslast();
-                        xB=party.takexlast();
-                        yB=party.takeylast();
-                        party.inc();
-                        temp=checkabsorbed(party.showpid(),sB,party.showslast(),xB,party.takexlast(),yB,party.takeylast(),aperture.x(),aperture.y(),2);
-                    }
-                    else temp=checkabsorbed(party.showpid(),party.showslast(),party.showslast(),0,0,0,0,0,0,1);
-                    //    party.dec();
-                    //
-                    //    party.inc();
-                    //}
-                    //else if(party.size()==1)
-                    //temp=checkabsorbed(party.showpid(),party.showslast());
+                    temp=checkabsorbed(party.showpid(),party.showslast());
                     if(temp!=0) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),temp));
                     else if(party.endofsim(aperture.ringlength())==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),2));
                     else if(party.sixtrackradius()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),6));
@@ -734,10 +673,8 @@ public:
         para >> completeline;
         para >> collimatornumber;
         for(int p=0; p<collimatornumber; p++){
-            para >> namepuffer;
             para >> puffer;
             collimatorpos.push_back(puffer);
-            collList.push_back(allcolls(namepuffer,p+101,puffer));
             hitlist.push_back(0);
         }
         para.close();
@@ -759,7 +696,6 @@ public:
             if(dontusesix==1){
                 sprintf(orderedtrack, "%s%u%s",   "tordered_", i, ".dat" );
                 sprintf(allabsorptionsnew, "%s%u%s",   "all_absorptions_", i, ".dat" );
-                sprintf(collgapsnew, "%s%u%s", "collgaps_", i, ".dat");
                 if(checkfile(orderedtrack)==0)return 0;
                 if(checkfile(allabsorptionsnew)==0)return 0;
             }
@@ -772,7 +708,6 @@ public:
         lengths.clear();
         ifstream coll;
         coll.open(collimator);
-        string cMaterial;
         for(int i=1; i<=2; i++)getline(coll, completeline); //read first two lines
         
         while(!coll.eof()){
@@ -792,7 +727,7 @@ public:
             sstr << completeline;
             sstr >> temp4;
             lengths.push_back(temp4);
-            //lengths=temp4;
+            lengths=temp4;
             while(r<8){
                 getline(coll, completeline);
                 r++;
@@ -823,61 +758,6 @@ public:
             }
         }
         beam.close();
-    }
-    
-    void updateCollimators(){
-        int iPuff,a,b,newType;
-        float newHalfGap,newLength,fPuff;
-        string name, mat;
-        ifstream colls;
-        //stringstream collStream;
-        colls.open(collgaps);
-        getline(colls,completeline);
-        list<allcolls>::iterator collit=collList.begin();
-        
-        while(!colls.eof()){
-            stringstream collStream;
-            getline(colls,completeline);
-            collStream << completeline;
-            collStream >> iPuff >> name >> fPuff >> fPuff >> fPuff >> newHalfGap >> mat >> newLength;
-            //cout << iPuff << name << fPuff << newHalfGap << mat << newLength << endl;
-            //cout << completeline << endl;
-            collit=collList.begin();
-            while(collit != collList.end()){
-                a=name.find("H");
-                b=name.find("V");
-                if(a==4) newType=1;
-                else if (b==4) newType=2;
-                if(collit->getName()==name)collit->updateData(mat,newType,newLength,newHalfGap);
-                collit++;
-            }
-        }
-    }
-    
-    void writeGeom(){
-        list<allcolls>::iterator collit=collList.begin();
-        ofstream hcol, vcol;
-        hcol.open("hcoldim.dat");
-        vcol.open("vcoldim.dat");
-        cout << "Writing Collimator Geometry" << endl;
-        while(collit != collList.end()){
-            if(collit->getType()==1){
-                hcol << collit->getSfront() << " 150" << endl;
-                hcol << collit->getSfront() << " " << collit->getHalfGap()*1000 << endl;
-                hcol << collit->getSback() << " " << collit->getHalfGap()*1000 << endl;
-                hcol << collit->getSback() << " 150" << endl;
-            }
-            else if(collit->getType()==2){
-                vcol << collit->getSfront() << " 150" << endl;
-                vcol << collit->getSfront() << " " << collit->getHalfGap()*1000 << endl;
-                vcol << collit->getSback() << " " << collit->getHalfGap()*1000 << endl;
-                vcol << collit->getSback() << " 150" << endl;
-            }
-            collit++;
-        }
-        hcol.close();
-        vcol.close();
-        cout << "Done" << endl;
     }
     
     void makegeom(){
@@ -1000,77 +880,23 @@ public:
         sixabsorptions.close();
         cout << "Anzahl absorbed according to ST: " << abspid.size() << endl;
     }
-    int checkabsorbed(int checker, double slast, double sact, double lx, double ax, double ly, double ay, double apx, double apy, int sw){
+    int checkabsorbed(int checker, double slast){
         vector<int>::iterator abspit=abspid.begin();
-        list<allcolls>::iterator collit=collList.begin();
         abspit=find(abspid.begin(),abspid.end(),checker);
         temp=*abspit;
-        int ret=0;
         if(temp==checker){
             //check which collimator and delete element
             abspid.erase(abspit);
-            //int p=0, a=0; //
-            //cout << sact << endl;
-            collit=collList.begin();
-            while(collit!=collList.end() && ret==0){
-                ret=collit->absorbedInColl(sact);
-                if(ret!=0) break;
-                collit++;
-            }
-            return ret;
-        }
-        else {
-            if(sw==2){
-                while(collit!=collList.end() && ret==0){
-                    if(collit->findColl(slast,sact)==1){
-                        ret=collit->isAbsorbedOrLost(lx,ax,ly,ay,apx,apy);
-                    }
-                    if(ret!=0) break;
-                    collit++;
+            int p=0, a=0;
+            for(p=0; p<collimatornumber; p++){
+                if(slast<(collimatorpos[p]+(lengths[p]/2)+0.01) && slast>(collimatorpos[p]-(lengths[p]/2)-0.01)){
+                    hitlist[p]++;
+                    a=p;
                 }
-                return ret;
             }
-            else return 0;
+            return a+101;
         }
-        
-            
-            
-            
-            
-//            if(sw==1){
-//                while(collit!=collList.end() && ret==0){
-//                    ret=collit->absorbedInColl(slast);
-//                    if(ret!=0) break;
-//                    collit++;
-//                }
-//                return ret;
-//            }
-//            else if(sw==2){
-//                while(collit!=collList.end() && ret==0){
-//                    if( ){
-//                        ret=collit->isInRightArea(slast);
-//                    }
-//                    if(ret!=0) break;
-//                    collit++;
-//                }
-//                return ret;
-//            }
-//            //
-////            for(p=0; p<collimatornumber; p++){
-////                if(slast<(collimatorpos[p]+(lengths[p]/2)+0.01) && slast>(collimatorpos[p]-(lengths[p]/2)-0.01)){
-////                    hitlist[p]++;
-////                    a=p;
-////                }
-////            }
-////            return a+101;
-//            //
-//        }
-//        else {
-//            //while(collit!=collList.end()){
-//                return 0;
-//            //}
-//            
-//        }
+        else return 0;
     }
     
     int sixtrack(){
@@ -1144,8 +970,6 @@ public:
         sprintf( flukafilenew, "%s%u%s",   "FLUKA_impacts_", start, ".dat"  );
         sprintf( flukafile, "%s",   "FLUKA_impacts.dat"  );
         sprintf( bugfile, "%s%u%s",   "bugfile_", start, ".dat"  );
-        sprintf( collgaps, "%s", "collgaps.dat");
-        sprintf( collgapsnew, "%s%u%s", "collgaps_", start, ".dat");
     }
     
     void makeoutput(){
@@ -1217,18 +1041,10 @@ public:
         efffile << " " << totalparticles << " " << sum << " " << hitcollimator << " " << hitaperture << " " << exceed << " "  << strange << " " << speed << " " << eff << " " << ineff << " " << status << endl;
         efffile.close();
         
-        list<allcolls>::iterator collit=collList.begin();
-        while(collit!=collList.end()){
-            statistics << "Collimator: " << collit->getCollNumber() << " " << collit->getAbsorbed() << endl;
-            collit->ResetAbsorbed();
-            collit++;
+        for(int p=0; p<collimatornumber; p++){ // writing the absorbtions in every collimator into a file
+            statistics << "Collimator: " << p+1 << " " << hitlist[p] << endl;
+            hitlist[p]=0;
         }
-        
-        
-//        for(int p=0; p<collimatornumber; p++){ // writing the absorbtions in every collimator into a file
-//            statistics << "Collimator: " << p+1 << " " << hitlist[p] << endl;
-//            hitlist[p]=0;
-//        }
         
         statistics.close();
         
@@ -1247,10 +1063,7 @@ public:
     void filerename(){
         if(mode==1)rename(inputcollimator, collimator);
         if(mode==2)rename(inputfort, fort);
-        if(dontusesix==1){
-            rename(allabsorptionsnew, allabsorptions);
-            rename(collgapsnew, collgaps);
-        }
+        if(dontusesix==1)rename(allabsorptionsnew, allabsorptions);
     }
     void filerenameback(){
         if(mode==1)rename(collimator,inputcollimator);
@@ -1258,10 +1071,7 @@ public:
         rename(firstimpacts,firstimpactsnew); //rename all the files that were used
         rename(allabsorptions,allabsorptionsnew);
         rename(flukafile,flukafilenew);
-        rename(collgaps, collgapsnew);
     }
-    
-    
     
 };
 
