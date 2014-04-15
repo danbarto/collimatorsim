@@ -5,22 +5,8 @@
 //
 //  Created by Daniel Spitzbart 2013/2014
 //  daniel.spitzbart@cern.ch
-//  ###################
-//  #### changelog ####
-//  ###################
-//  09/01/2014
-//  - code rewritten, should be better editable and readable
-//  - minor bugfixes and changes
-//  - possiblity added to use different beamproperties instead of collimator settings. They are written into the output-file instead of primary settings
-//  - missing files should be detected before a simulation
 //
-//
-//
-//
-//
-//
-//
-//
+//  github.com/danbarto/collimatorsim
 
 #include <iostream>
 #include <fstream>
@@ -37,9 +23,10 @@
 using namespace std;
 
 void welcomescreen(){
+    cout << endl;
     cout << "##########################################" << endl;
     cout << "## AUTOMATED COLLIMATOR SIMULATION TOOL ##" << endl;
-    cout << "##########################################" << endl << endl;
+    cout << "##########################################" << endl << endl << endl;
 }
 
 int checkfile(char filename[100]){
@@ -60,10 +47,9 @@ int checkfile(char filename[100]){
 
 class allcolls{
 private:
-    string collname,material;
+    string collname, material;
     int collnumber, type, absorbedParticles; //type 0=no collimator, 1=H, 2=V, 3=H+V
     float s_center, s_front, s_back, length, halfGap;
-    
 public:
     allcolls(){
         collname="";material="";collnumber=0;type=0;s_center=0.;length=0.;s_front=s_center-length/2.;s_back=s_center+length/2.;halfGap=0.;absorbedParticles=0;
@@ -87,10 +73,6 @@ public:
         if(givPosLast>=s_front-0.01 && givPosLast<=s_back+0.01 && givPosAct>=s_front-0.01 && givPosAct<=s_back+0.01) return 1;
         else return 0;
     }
-//    void getOpening(double opX, double opY){
-//        opX=openingMx;
-//        opY=openingMy;
-//    }
     int isInRightArea(double aperture, double lX, double aX, double lY, double aY){
         float ipApCol, angleR1, angleR2,anglePart;
         ipApCol=sqrt(aperture*aperture-halfGap*halfGap);
@@ -102,11 +84,6 @@ public:
         }
         else return 0;
     }
-    
-//    void writeemittance(double ex, double ey){
-//        epsX=ex;
-//        epsY=ey;
-//    }
     
     void addAbsorbed(){
         absorbedParticles++;
@@ -125,60 +102,45 @@ public:
     int getType(){return type;}
     int getCollNumber(){return collnumber;}
     void ResetAbsorbed(){absorbedParticles=0;}
-    
+    float getLength(){return length;}
+    string getMaterial(){return material;}
     void updateData(string mat, int nT, float len, float op){
         material=mat;type=nT;length=len;s_front=s_center-len/2.;s_back=s_center+len/2.;halfGap=op;
     }
     
     int isAbsorbedOrLost(double lastX, double actX, double lastY, double actY, double apX, double apY){ //check if particle did hit the collimator and if it was absorbed
         if(type==2){
-            //if(lastY*lastY>=halfGap*halfGap){ //check if hit
-                if(actY*actY>lastY*lastY && actY*actY>halfGap*halfGap){
-                    return collnumber; //safely absorbed, should never be the case (std ST case)
+            if(actY*actY>lastY*lastY && actY*actY>halfGap*halfGap){
+                return collnumber; //safely absorbed, should never be the case (std ST case)
+            }
+            else {
+                if(isInRightArea(apX,lastX,actX,lastY,actY)==1){
+                    return collnumber; //absorbed
                 }
-                else {
-//                    ipApCol=sqrt(apX*apX-openingMy*openingMy);
-//                    angleR1=atan((ipApCol-lastX)/(2.*openingMy));
-//                    angleR2=atan((ipApCol+lastX)/(2.*openingMy));
-//                    anglePart=atan((actX-lastX)/(actY-lastY));
-                    if(isInRightArea(apX,lastX,actX,lastY,actY)==1){
-                        return collnumber; //absorbed
-                    }
-                    else return 0; //hit aperture -> lost
-                    
-                }
-            //}
-            //else return 97;
+                else return 0; //hit aperture -> lost
+            }
         }
         else if(type==1){
-            //if(lastX*lastX>=halfGap*halfGap){
-                if(actX*actX>lastX*lastX && actX*actX>halfGap*halfGap){
-                    return collnumber;
-                }
-                else {
-                    if(isInRightArea(apY,lastY,actY,lastX,actX)==1){
-                        return collnumber;
-                    }
-                    else return 0;
-                }
-            //}
-            //else return  98;
-        }
-        else if(type==3){ // not defined as not possible yet
-            //if(lastX*lastX>=halfGap*halfGap || lastY*lastY>=halfGap*halfGap){
-                if(actX*actX>halfGap*halfGap || actY*actY>halfGap*halfGap){
+            if(actX*actX>lastX*lastX && actX*actX>halfGap*halfGap){
+                return collnumber;
+            }
+            else {
+                if(isInRightArea(apY,lastY,actY,lastX,actX)==1){
                     return collnumber;
                 }
                 else return 0;
-            //}
-            //else return 99;
+            }
         }
-        else{
+        else if(type==3){ // not defined as not possible yet
+            if(actX*actX>halfGap*halfGap || actY*actY>halfGap*halfGap){
+                return collnumber;
+            }
+            else return 0;
+        }
+        else {
             return 0;
         }
     }
-                        
-
     
     ~allcolls(){}
     
@@ -289,7 +251,6 @@ public:
         eofstat=firstturn=0;
         pid=d1;
         while(d1==pid){
-            //cout << pid << endl;
             if(key2==1){
                 firstturn=(d2-1);
                 key2=0;
@@ -532,9 +493,8 @@ public:
 
 class run{
 private:
-    vector<int> hitlist, abspid;
-    vector<float> collimatorpos, beamprops, lengths;
-    vector<string> materials;
+    vector<int> abspid;
+    vector<float> beamprops;
     list<partdata> lost, tracklist;
     list<allcolls> collList;
     aperturelist aperture;
@@ -559,9 +519,8 @@ public:
             else if (mode==2) readfortfile();
             if(firstrun==1){
                 readcoll();
-                //makegeom();
-                //writeGeom();
                 makeeff();
+                firstrun=0;
             }
             if(dontusesix==0)if(sixtrack()==201)return 199;
             if(maketordered==1)makeorderedfile();
@@ -647,12 +606,6 @@ public:
                         temp=checkabsorbed(party.showpid(),sB,party.showslast(),xB,party.takexlast(),yB,party.takeylast(),aperture.x(),aperture.y(),2);
                     }
                     else temp=checkabsorbed(party.showpid(),party.showslast(),party.showslast(),0,0,0,0,0,0,1);
-                    //    party.dec();
-                    //
-                    //    party.inc();
-                    //}
-                    //else if(party.size()==1)
-                    //temp=checkabsorbed(party.showpid(),party.showslast());
                     if(temp!=0) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),temp));
                     else if(party.endofsim(aperture.ringlength())==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),2));
                     else if(party.sixtrackradius()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),6));
@@ -697,7 +650,6 @@ public:
                     tracklist.push_back(partdata(party.showpid(),party.calcturns(),party.shows(),party.takex(),party.takexp(),party.takey(),party.takeyp(),party.takede(),party.taketype(),0));
                     party.dec();
                     if(party.taketurnlast()!=lastturn)break;
-                    //if(party.listend()==1)break;
                 }
                 list<partdata>::iterator ittrack=tracklist.end();
                 sprintf( particletrack, "%s%u%s",   "trackpart", party.showpid(), ".dat"  );
@@ -736,9 +688,7 @@ public:
         for(int p=0; p<collimatornumber; p++){
             para >> namepuffer;
             para >> puffer;
-            collimatorpos.push_back(puffer);
             collList.push_back(allcolls(namepuffer,p+101,puffer));
-            hitlist.push_back(0);
         }
         para.close();
         return 1;
@@ -768,8 +718,6 @@ public:
     }
     
     void readcoll(){
-        materials.clear();
-        lengths.clear();
         ifstream coll;
         coll.open(collimator);
         string cMaterial;
@@ -785,14 +733,10 @@ public:
             if(coll.eof())break;
             getline(coll, completeline);
             cMaterial=completeline;
-            materials.push_back(completeline);
             getline(coll, completeline);
-            
             stringstream sstr; // change the string of the length to float
             sstr << completeline;
             sstr >> temp4;
-            lengths.push_back(temp4);
-            //lengths=temp4;
             while(r<8){
                 getline(coll, completeline);
                 r++;
@@ -830,7 +774,6 @@ public:
         float newHalfGap,newLength,fPuff;
         string name, mat;
         ifstream colls;
-        //stringstream collStream;
         colls.open(collgaps);
         getline(colls,completeline);
         list<allcolls>::iterator collit=collList.begin();
@@ -840,8 +783,6 @@ public:
             getline(colls,completeline);
             collStream << completeline;
             collStream >> iPuff >> name >> fPuff >> fPuff >> fPuff >> newHalfGap >> mat >> newLength;
-            //cout << iPuff << name << fPuff << newHalfGap << mat << newLength << endl;
-            //cout << completeline << endl;
             collit=collList.begin();
             while(collit != collList.end()){
                 a=name.find("H");
@@ -880,101 +821,6 @@ public:
         cout << "Done" << endl;
     }
     
-    void makegeom(){
-        int a, b;
-        float ex, ey, opening;
-        ifstream twiss;
-        twiss.open("ps2_twiss_coll");
-        if(twiss!=0){
-            cout << "Going to make a collimator geometry file" << endl;
-            while(!twiss.eof()){
-                getline(twiss, completeline);
-                a=completeline.find("@ EX");
-                b=completeline.find("@ EY");
-                if(a==0){
-                    stringstream sstr;
-                    sstr << completeline;
-                    for(int i=1; i<=3; i++)sstr >> temp3;
-                    sstr >> ex;
-                }
-                if(b==0){
-                    stringstream sstr;
-                    sstr << completeline;
-                    for(int i=1; i<=3; i++)sstr >> temp3;
-                    sstr >> ey;
-                    //break;
-                }
-            }
-            
-            cout << "Reading the emittance" << endl;
-            //sprintf( inputcollimator, "%s%u%s",   "list_coll_", start, ".data" );
-            ofstream hcol, vcol;
-            hcol.open("hcoldim.dat");
-            vcol.open("vcoldim.dat");
-            
-            ifstream coll;
-            
-            
-            coll.open("list_coll.data");
-            getline(coll, completeline); //read first two lines
-            getline(coll, completeline);
-            
-            int r=0;
-            cout << "Loading the collimator geometry" << endl;
-            while(!coll.eof()){
-                for(int i=1; i<=2; i++)getline(coll, completeline);
-                a=completeline.find("H");
-                b=completeline.find("V");
-                
-                for(int i=1; i<=2; i++)getline(coll, completeline);
-                stringstream sigma;
-                sigma << completeline;
-                sigma >> temp4;
-                
-                for(int i=1; i<=2; i++)getline(coll, completeline);
-                stringstream thick;
-                thick << completeline;
-                thick >> temp5;
-                
-                for(int i=1; i<=3; i++)getline(coll, completeline);
-                stringstream betax;
-                betax << completeline;
-                betax >> temp6;
-                getline(coll, completeline);
-                
-                stringstream betay;
-                betay << completeline;
-                betay >> temp7;
-                
-                if(a==4){
-                    opening = sqrt(temp6*ex)*temp4*1000;
-                    hcol << collimatorpos[r]-temp5/2 << " 150" << endl;
-                    hcol << collimatorpos[r]-temp5/2 << " " << opening << endl;
-                    hcol << collimatorpos[r]+temp5/2 << " " << opening << endl;
-                    hcol << collimatorpos[r]+temp5/2 << " 150" << endl;
-                    
-                }
-                if(b==4){
-                    opening = sqrt(temp7*ey)*temp4*1000;
-                    vcol << collimatorpos[r]-temp5/2 << " 150" << endl;
-                    vcol << collimatorpos[r]-temp5/2 << " " << opening << endl;
-                    vcol << collimatorpos[r]+temp5/2 << " " << opening << endl;
-                    vcol << collimatorpos[r]+temp5/2 << " 150" << endl;
-                    
-                }
-                r++;
-                
-            }
-            coll.close();
-            hcol.close();
-            vcol.close();
-            cout << "Done" << endl;
-            //return 99;
-        }
-        twiss.close();
-        firstrun=0;
-    }
-    
     void makeeff(){
         ofstream efficiency;
         efficiency.open(outfilenameeff);
@@ -988,7 +834,6 @@ public:
     void readabsorbed(){
         abspid.clear();
         ifstream sixabsorptions;
-        //sprintf(allabsorptions, "%s",   "all_absorptions.dat" );
         sixabsorptions.open(allabsorptions);
         getline(sixabsorptions, completeline); //Read the all_absorptions.dat file to compare my absorbed particles with the ones directly from SixTrack -> distinguish between really absorbed and just look-a-likes
         while(!sixabsorptions.eof()){
@@ -998,7 +843,7 @@ public:
             if(sixabsorptions.eof())break;
         }
         sixabsorptions.close();
-        cout << "Anzahl absorbed according to ST: " << abspid.size() << endl;
+        cout << "Total particles absorbed according to ST: " << abspid.size()-1 << endl;
     }
     int checkabsorbed(int checker, double slast, double sact, double lx, double ax, double ly, double ay, double apx, double apy, int sw){
         vector<int>::iterator abspit=abspid.begin();
@@ -1009,8 +854,6 @@ public:
         if(temp==checker){
             //check which collimator and delete element
             abspid.erase(abspit);
-            //int p=0, a=0; //
-            //cout << sact << endl;
             collit=collList.begin();
             while(collit!=collList.end() && ret==0){
                 ret=collit->absorbedInColl(sact);
@@ -1032,55 +875,17 @@ public:
             }
             else return 0;
         }
-        
-            
-            
-            
-            
-//            if(sw==1){
-//                while(collit!=collList.end() && ret==0){
-//                    ret=collit->absorbedInColl(slast);
-//                    if(ret!=0) break;
-//                    collit++;
-//                }
-//                return ret;
-//            }
-//            else if(sw==2){
-//                while(collit!=collList.end() && ret==0){
-//                    if( ){
-//                        ret=collit->isInRightArea(slast);
-//                    }
-//                    if(ret!=0) break;
-//                    collit++;
-//                }
-//                return ret;
-//            }
-//            //
-////            for(p=0; p<collimatornumber; p++){
-////                if(slast<(collimatorpos[p]+(lengths[p]/2)+0.01) && slast>(collimatorpos[p]-(lengths[p]/2)-0.01)){
-////                    hitlist[p]++;
-////                    a=p;
-////                }
-////            }
-////            return a+101;
-//            //
-//        }
-//        else {
-//            //while(collit!=collList.end()){
-//                return 0;
-//            //}
-//            
-//        }
     }
     
     int sixtrack(){
-        
-        system("./SixTrack");
+        cout << "SixTrack is running, patience please..." << endl;
+        system("./SixTrack > out.s");
+        cout << "SixTrack simulation finished" << endl;
         int a,b;
         ifstream trackfile;
         trackfile.open("tracks2.dat");
         if(trackfile==0){
-            cout << "It seems that sixtrack did not run, exiting!" << endl;
+            cout << "It seems that SixTrack did not run (trackfile missing!), exiting!" << endl;
             return 201;
         }
         ofstream particle1, particle2;
@@ -1165,7 +970,6 @@ public:
         
         list<partdata>::iterator itlost=lost.begin();
         while(itlost != lost.end()){//all particle are written into finallocation_i.dat
-            //itlost->outputpart();
             final << itlost->showpid() << '\t' << itlost->showturn()  << '\t' << itlost->showspos()  << '\t' << itlost->showxpos()  << '\t' << itlost->showxp()  << '\t' << itlost->showypos()  << '\t' << itlost->showyp()  << '\t' << itlost->showde()  << '\t' << itlost->showtype()  << '\t' << itlost->showradius() << '\t' << itlost ->showlosstype() << endl;
             backcheck++;
             if(itlost ->showlosstype()>100){//absorbed in collimator -> collimatorloss_i.dat
@@ -1211,24 +1015,36 @@ public:
         ineff=(1.*(hitaperture+strange))/hitcollimator;
         speed=(1.*lessthanone)/hitcollimator;
         
+        char materialH[10], materialV[10];
+        float lengthH, lengthV;
+
+        list<allcolls>::iterator collit=collList.begin();
+        while(collit!=collList.end()){
+             if(collit->getName()=="TCP.H.1"){
+                 size_t strlength=collit->getMaterial().copy(materialH,2,0);
+                 materialH[strlength]='\0';
+                 lengthH=collit->getLength();
+             }
+             if(collit->getName()=="TCP.V.1"){
+                 size_t strlength=collit->getMaterial().copy(materialV,2,0);
+                 materialV[strlength]='\0';
+                 lengthV=collit->getLength();
+             }
+        collit++;
+        }
+
         efffile.open(outfilenameeff, ios::out | ios::app);
-        if(mode==1) efffile << start << " " << materials[0] << " " << lengths[0] << " " << materials[2] << " " << lengths[2] << " ";
+        if(mode==1) efffile << start << " " << materialH << " " << lengthH << " " << materialV << " " << lengthV << " ";
         if(mode==2) efffile << start << " " << beamprops[0] << " " << beamprops[1] << " " << beamprops[2] << " " << beamprops[3] << " ";
         efffile << " " << totalparticles << " " << sum << " " << hitcollimator << " " << hitaperture << " " << exceed << " "  << strange << " " << speed << " " << eff << " " << ineff << " " << status << endl;
         efffile.close();
         
-        list<allcolls>::iterator collit=collList.begin();
+        collit=collList.begin();
         while(collit!=collList.end()){
             statistics << "Collimator: " << collit->getCollNumber() << " " << collit->getAbsorbed() << endl;
             collit->ResetAbsorbed();
             collit++;
         }
-        
-        
-//        for(int p=0; p<collimatornumber; p++){ // writing the absorbtions in every collimator into a file
-//            statistics << "Collimator: " << p+1 << " " << hitlist[p] << endl;
-//            hitlist[p]=0;
-//        }
         
         statistics.close();
         
@@ -1241,7 +1057,6 @@ public:
         
         lessthanone=backcheck=hitcollimator=strange=hitaperture=exceed=0;
         lost.clear();
-        hitlist.clear();
     }
     
     void filerename(){
@@ -1260,8 +1075,6 @@ public:
         rename(flukafile,flukafilenew);
         rename(collgaps, collgapsnew);
     }
-    
-    
     
 };
 
