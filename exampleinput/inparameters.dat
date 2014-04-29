@@ -1,8 +1,9 @@
-highparttest.dat
-1 0 1
+myResultFile.dat
+0 0 1
 2
 2
 2
+315.58
 Collimatorpositions(center):
 8
 TCP.H.1

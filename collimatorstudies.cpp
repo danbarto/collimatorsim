@@ -104,6 +104,9 @@ public:
     void ResetAbsorbed(){absorbedParticles=0;}
     float getLength(){return length;}
     string getMaterial(){return material;}
+    void updateCenter(float shift){
+        s_center=s_center+shift;s_front=s_front+shift;s_back=s_back+shift;
+    }
     void updateData(string mat, int nT, float len, float op){
         material=mat;type=nT;length=len;s_front=s_center-len/2.;s_back=s_center+len/2.;halfGap=op;
     }
@@ -204,10 +207,26 @@ public:
     double showapx(){return apx;}
     double showapy(){return apy;}
     double showapr(){return apr;}
-    int showshape(){return shape;}
+    
+		void shift(double shiftval){
+		  s0+=shiftval;
+			s1+=shiftval;
+			s2+=shiftval;
+			if(s2>shiftval){
+			  s2=shiftval;
+			  s1=(s2-s0)/2.+s0;
+				stili5_b=(s2-s0)/2.;
+				}
+		}
+		
+		int showshape(){return shape;}
     ~aperdata(){}
     
-    void outputaper(){
+    bool operator<(const aperdata& other) const {
+			return s1 < other.s1;
+			}
+		
+		void outputaper(){
         cout << apername << " " << s0 << " " << s1 << " " << s2 << " " << stili5_b << " " << apx << " " << apy << " " << apr <<endl;
     }
     
@@ -436,32 +455,63 @@ private:
     list<aperdata> aplist;
     list<aperdata>::iterator itref, itlast;
     string c1;
-    double c2, c3, c4, c5, c6, c7, length;
+    double c2, c3, c4, c5, c6, c7, length;//,ringlength;
 public:
     aperturelist(){
+		}
+
+		void create(double shift){
         char aperturefile[50];
         sprintf(aperturefile, "%s", "aperture2.dat");
         if(checkfile(aperturefile)==1){
             ifstream inaper;
+            ofstream outaper;
             inaper.open("aperture2.dat");
+            outaper.open("aperture_shifted.dat");
             while (!inaper.eof()){
                 inaper >> c1 >> c2 >> c3 >> c4 >> c5 >> c6 >> c7;
                 if( inaper.eof() ) break;
-                aplist.push_back(aperdata(c1,c2,c3,c4,c5,c6,c7));
+                aplist.push_back(aperdata(c1,c2-shift,c3-shift,c4-shift,c5,c6,c7));
+            }
+            length=c4;
+            itref=aplist.begin();
+            while(itref!=aplist.end()){
+                if(itref->shows0()<0){
+                    if(itref->shows2()>0){
+                        aplist.push_back(aperdata(itref->showap(),0,(itref->shows2())/2.,itref->shows2(),itref->shows2(),itref->showapx()*1000., itref->showapy()*1000.));
+                    }
+                    itref->shift(length);
+                }
+                itref++;
             }
             inaper.close();
+            aplist.sort();
+            itref=aplist.begin();
+            while(itref!=aplist.end()){
+                //cout << itref->showap() << "\t" << itref->shows0() << " " << itref->shows2() << " " << itref->showapx() << " " << itref->showapy() << endl;
+                outaper << itref->showap() << "\t" << itref->shows0() << "\t" << itref->shows1() << "\t" << itref->shows2() << "\t" << itref->showstili5_b() << "\t" << itref->showapx() << "\t" << itref->showapy() << endl;
+                itref++;
+            }
+            outaper.close();
+            
         }
     }
     
+		void empty(){
+			aplist.clear();
+			}
+
     void showaperture(){
         itref=aplist.begin();
         while(itref!=aplist.end()){
-            cout << itref->showap() << endl;
+            cout << itref->shows0() << " " << itref->showap() << " " << itref->shows2() << endl;
             itref++;
         }
+        itref=aplist.begin();
+        cout << itref->shows0() << endl;
     }
     
-    void makelength(){
+    void makelength(){//kill
         itref=aplist.end();
         itref--;
         length=itref->shows1();
@@ -482,7 +532,9 @@ public:
     }
     
     double showsnow(){return itref->shows2();}
+    double showsnowfront(){return itref->shows0();}
     double showslast(){return itlast->shows2();}
+    double showslastfront(){return itlast->shows0();}
     double x(){return itref->showapx();}
     double y(){return itref->showapy();}
     double xlast(){return itlast->showapx();}
@@ -497,11 +549,13 @@ private:
     vector<float> beamprops;
     list<partdata> lost, tracklist;
     list<allcolls> collList;
+		list<allcolls>::iterator collListIt;
     aperturelist aperture;
     int case1, case2, start, stop, switcher, maketordered, dontusesix, collimatornumber, mode, firstrun, temp, totalparticles, breaker;
     string completeline,namepuffer,listLength;
     char outfilenameeff[100], temp3[10], inputcollimator[50], collimator[50], inputfort[20], fort[20], orderedtrack[50], allabsorptions[50], allabsorptionsnew[50], firstimpacts[100], firstimpactsnew[100], collgaps[50], collgapsnew[50],flukafile[100], flukafilenew[100], outfilenameloss[100], outfileaperture[100], outfilecollimator[100], outfileexceed[100], outfilestrangeloss[100], statisticsfile[100], bugfile[100], particletrack[100], particlefile[100], aperturefile[50];
-    float puffer, temp4, temp5, temp6, temp7;
+    float puffer, temp4, temp5, temp6, temp7,positionshiftfloat;
+		double positionshift,collhalflength;
 public:
     run(){
     }
@@ -510,6 +564,8 @@ public:
     int execute(){
         firstrun=1;
         if(readinparameters()==0)return 199;
+				//aperture.create(positionshift);
+				//aperturelist aperture(positionshift);
         if(checkfileexistance()==0)return 199;
         while(start<=stop){
             totalparticles=0;
@@ -522,23 +578,36 @@ public:
                 makeeff();
                 firstrun=0;
             }
-            if(dontusesix==0)if(sixtrack()==201)return 199;
+            collListIt=collList.begin();
+						collhalflength=(double)(collListIt->getLength()/2.);
+						if(positionshift>0.){
+							aperture.create(positionshift+collhalflength);
+						}
+						else aperture.create(0.);
+						if(dontusesix==0)if(sixtrack()==201)return 199;
             if(maketordered==1)makeorderedfile();
+            //aperture.showaperture();
             readabsorbed();
             if(dontusesix==0 && maketordered==0){
+                updateCollimators();
                 for(int i=1; i<=2; i++){
-                    updateCollimators();
+                    //updateCollimators();
+                    //collListIt=collList.begin();
+                    //cout << collListIt->getSfront() << " " << collListIt->getSback() << endl;
                     sprintf(particlefile, "%s%u%s", "particle",i,".dat");
                     trackrun(particlefile);
                 }
             }
             else {
                 updateCollimators();
+                //collListIt=collList.begin();
+                //cout << collListIt->getSfront() << " " << collListIt->getSback() << endl;
                 trackrun(orderedtrack);
             }
             makeoutput();
             writeGeom();
             filerenameback();
+						aperture.empty();
             start++;
         }
         return 1;
@@ -554,11 +623,115 @@ public:
             party.readparticle(start);
             party.init();
             cout << "Processing particle: " << party.showpid() << endl;
-            aperture.makelength();
+            aperture.makelength(); //kill
             aperture.init();
             totalparticles++;
             breaker=0;
-            while(aperture.showsnow() <= party.shows()){ //get the particle into the right ring section
+            //cout << aperture.showsnow() << " " << party.shows() << " " << aperture.ringlength() <<  endl;
+            int firstenter=1;
+            while(/*party.shows() >= aperture.showsnow() || party.shows() < aperture.showsnowfront() || */firstenter==1){ //loop for one particle
+                //firstenter=0;
+                //cout << aperture.showsnow() << endl;
+                while(aperture.showsnow()<=party.shows())aperture.apinc(); //get the particle into the right ring section
+                while(party.shows()>aperture.ringlength()){ // if particle at end of ring -> increase one step, get aperture back to beginning
+                    party.inc();
+                    aperture.init();
+                }
+                while(party.shows()>=aperture.showsnowfront() && party.shows()<aperture.showsnow()){ // if particle is in the right ring section, proceed through the track-list and check for losses
+                    //cout << "Ordinary " << party.x() << " " << party.y() << " " << party.shows() << " " << aperture.showsnow() << endl;
+                    if(party.listend()==1){ // if the track-list end is reached, check if particle is absorbed or sth else happens
+                        //cout << "The end is neigh!" << endl;
+                        int listLength;
+                        listLength=party.size();
+                        if(listLength>1){
+                            double sB,xB,yB;
+                            party.dec();
+                            sB=party.showslast();
+                            xB=party.takexlast();
+                            yB=party.takeylast();
+                            party.inc();
+                            temp=checkabsorbed(party.showpid(),sB,party.showslast(),xB,party.takexlast(),yB,party.takeylast(),aperture.x(),aperture.y(),2);
+                        }
+                        else temp=checkabsorbed(party.showpid(),party.showslast(),party.showslast(),0,0,0,0,0,0,1);
+                        if(temp!=0) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),temp));
+                        else if(party.endofsim(aperture.ringlength())==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),2));
+                        else if(party.sixtrackradius()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),6));
+                        else if(party.sixtrackangle()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),7));
+                        else lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),8));
+                        breaker=1;
+                        break;
+                    }
+                    else{
+                        if(aperture.getshaperef()==0){ // check losses in the two different shapes (hyperellipse, circular)
+                            if(party.insideradius(party.x(),party.y(),aperture.x())==0){
+                                party.straightx();
+                                party.straighty();
+                                party.calcintersecc(aperture.xlast());
+                                lost.push_back(partdata(party.showpid(),party.calcturns(),party.showintersec(),party.xv(party.showintersec()),party.takexp(),party.yv(party.showintersec()),party.takeyp(),party.takede(),party.taketype(),3));
+                                breaker=1;
+                                break;
+                            }
+                            else {
+                                party.inc();
+                                //cout << party.showturn() << " " << party.shows()<< endl;
+                                if(/*party.sameturn()==0|| */party.shows() > aperture.ringlength()){
+                                    aperture.init();
+                                    break;
+                                }
+                            }
+                        }
+                        else{
+                            if(party.insidehyper(party.x(),party.y(),aperture.x(),aperture.y())==0){
+                                party.straightx();
+                                party.straighty();
+                                party.calcintersech(aperture.xlast(),aperture.ylast());
+                                lost.push_back(partdata(party.showpid(),party.calcturns(),party.showintersec(),party.xv(party.showintersec()),party.takexp(),party.yv(party.showintersec()),party.takeyp(),party.takede(),party.taketype(),1));
+                                breaker=1;
+                                break;
+                            }
+                            else {
+                                party.inc();
+                                if(party.shows() > aperture.ringlength()){
+                                    aperture.init();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                }
+                while(party.shows()>aperture.ringlength()){ // if particle at end of ring -> increase one step, get aperture back to beginning
+                    party.inc();
+                    aperture.init();
+                    
+                }
+                if(breaker==1)break;
+                if(party.listend()==1){ // if the track-list end is reached, check if particle is absorbed or sth else happens
+                    //cout << "The end is neigh!" << endl;
+                    int listLength;
+                    listLength=party.size();
+                    if(listLength>1){
+                        double sB,xB,yB;
+                        party.dec();
+                        sB=party.showslast();
+                        xB=party.takexlast();
+                        yB=party.takeylast();
+                        party.inc();
+                        temp=checkabsorbed(party.showpid(),sB,party.showslast(),xB,party.takexlast(),yB,party.takeylast(),aperture.x(),aperture.y(),2);
+                    }
+                    else temp=checkabsorbed(party.showpid(),party.showslast(),party.showslast(),0,0,0,0,0,0,1);
+                    if(temp!=0) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),temp));
+                    else if(party.endofsim(aperture.ringlength())==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),2));
+                    else if(party.sixtrackradius()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),6));
+                    else if(party.sixtrackangle()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),7));
+                    else lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),8));
+                    breaker=1;
+                    break;
+                }
+                //aperture.apinc();
+                //cout << "next" << party.shows() << " " << aperture.showsnow() << endl;
+                while(party.shows()<=aperture.showsnowfront() && party.shows()>=aperture.showsnow()){ //if the particle leaves the right ring section, proceed through the aperture list and check if the particle crosses hits it
+                
                 if(aperture.apinc()==1){ // check for size/shape changes of the aperture
                     if(party.sameturn()==1){
                         party.straightx(); // calculate straight lines for loss checks
@@ -588,57 +761,9 @@ public:
                         }
                     }
                 }
-            while(party.shows()>aperture.ringlength()){ // if particle at end of ring -> increase one step, get aperture back to beginning
-                    party.inc();
-                    aperture.init();
                 }
-            while(aperture.showsnow() > party.shows()){ // if particle is in the right ring section, proceed through the track-list and check for losses
-                if(party.listend()==1){ // if the track-list end is reached, check if particle is absorbed or sth else happens
-                    int listLength;
-                    listLength=party.size();
-                    if(listLength>1){
-                        double sB,xB,yB;
-                        party.dec();
-                        sB=party.showslast();
-                        xB=party.takexlast();
-                        yB=party.takeylast();
-                        party.inc();
-                        temp=checkabsorbed(party.showpid(),sB,party.showslast(),xB,party.takexlast(),yB,party.takeylast(),aperture.x(),aperture.y(),2);
-                    }
-                    else temp=checkabsorbed(party.showpid(),party.showslast(),party.showslast(),0,0,0,0,0,0,1);
-                    if(temp!=0) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),temp));
-                    else if(party.endofsim(aperture.ringlength())==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),2));
-                    else if(party.sixtrackradius()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),6));
-                    else if(party.sixtrackangle()==1) lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),7));
-                    else lost.push_back(partdata(party.showpid(),party.calcturns(),party.showslast(),party.takexlast(),party.takexplast(),party.takeylast(),party.takeyplast(),party.takedelast(),party.taketypelast(),8));
-                    breaker=1;
-                    break;
-                }
-                else{
-                    if(aperture.getshaperef()==0){ // check losses in the two different shapes (hyperellipse, circular)
-                        if(party.insideradius(party.x(),party.y(),aperture.x())==0){
-                            party.straightx();
-                            party.straighty();
-                            party.calcintersecc(aperture.xlast());
-                            lost.push_back(partdata(party.showpid(),party.calcturns(),party.showintersec(),party.xv(party.showintersec()),party.takexp(),party.yv(party.showintersec()),party.takeyp(),party.takede(),party.taketype(),3));
-                            breaker=1;
-                            break;
-                        }
-                        else party.inc();
-                    }
-                    else{
-                        if(party.insidehyper(party.x(),party.y(),aperture.x(),aperture.y())==0){
-                            party.straightx();
-                            party.straighty();
-                            party.calcintersech(aperture.xlast(),aperture.ylast());
-                            lost.push_back(partdata(party.showpid(),party.calcturns(),party.showintersec(),party.xv(party.showintersec()),party.takexp(),party.yv(party.showintersec()),party.takeyp(),party.takede(),party.taketype(),1));
-                            breaker=1;
-                            break;
-                        }
-                        else party.inc();
-                    }
-                }
-            }
+                
+                            
             if(breaker==1)break;
             }
             //Routine for trackoutput
@@ -683,12 +808,15 @@ public:
         para >> switcher; //define for which particle a trackanalysis is made, 0 for nothing
         para >> start;
         para >> stop;
+				para >> positionshift;
         para >> completeline;
         para >> collimatornumber;
+        positionshiftfloat=(float)(positionshift);
         for(int p=0; p<collimatornumber; p++){
             para >> namepuffer;
             para >> puffer;
-            collList.push_back(allcolls(namepuffer,p+101,puffer));
+            //cout << puffer - positionshiftfloat << endl;
+            collList.push_back(allcolls(namepuffer,p+101,puffer-positionshiftfloat));
         }
         para.close();
         return 1;
@@ -771,7 +899,7 @@ public:
     
     void updateCollimators(){
         int iPuff,a,b,newType;
-        float newHalfGap,newLength,fPuff;
+        float newHalfGap,newLength,fPuff,PhalfLength;
         string name, mat;
         ifstream colls;
         colls.open(collgaps);
@@ -793,6 +921,14 @@ public:
                 collit++;
             }
         }
+            collit=collList.begin();
+            PhalfLength=collit->getLength()/2.;
+            while(collit != collList.end()){
+                collit->updateCenter(PhalfLength);
+                cout << collit->getSfront() << " " << collit->getSback() << endl;
+                collit++;
+            }
+        //}
     }
     
     void writeGeom(){
@@ -848,6 +984,13 @@ public:
     int checkabsorbed(int checker, double slast, double sact, double lx, double ax, double ly, double ay, double apx, double apy, int sw){
         vector<int>::iterator abspit=abspid.begin();
         list<allcolls>::iterator collit=collList.begin();
+        abspit=abspid.begin();
+        //float temp2;
+        //while(abspit!=abspid.end()){
+        //    temp2=*abspit;
+        //    cout << temp2 << endl;
+        //    abspit++;
+        //}
         abspit=find(abspid.begin(),abspid.end(),checker);
         temp=*abspit;
         int ret=0;
@@ -860,6 +1003,7 @@ public:
                 if(ret!=0) break;
                 collit++;
             }
+            cout << "Absorbed in " << ret << endl;
             return ret;
         }
         else {
@@ -871,6 +1015,7 @@ public:
                     if(ret!=0) break;
                     collit++;
                 }
+                cout << "Absorbed in " << ret << endl;
                 return ret;
             }
             else return 0;
