@@ -1,0 +1,26 @@
+myResultFile.dat
+0 0 1
+1
+1
+1
+336.975
+Collimatorpositions(center):
+9
+TCP.HVA
+336.975
+TCP.H.1
+336.98
+TCS.H.1
+351.8666668
+TCP.V.1
+337.0
+TCS.V.1
+353.8666668
+TCS.H.2
+420.494018
+TCS.V.2
+388.
+TCS.H.ADD1
+385.
+TCS.V.ADD1
+364.
