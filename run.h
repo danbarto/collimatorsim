@@ -21,8 +21,6 @@ public:
     int execute(){
         firstrun=1;
         if(readinparameters()==0)return 199;
-        //aperture.create(positionshift);
-        //aperturelist aperture(positionshift);
         if(checkfileexistance()==0)return 199;
         while(start<=stop){
             totalparticles=0;
@@ -38,27 +36,21 @@ public:
             collListIt=collList.begin();
             collhalflength=(double)(collListIt->getLength()/2.);
             if(positionshift>0.){
-              aperture.create(positionshift+collhalflength); //Ansehen ob das nicht überholt ist!!
+              aperture.create(positionshift+collhalflength);
             }
             else aperture.create(0.);
             if(dontusesix==0)if(sixtrack()==201)return 199;
             if(maketordered==1)makeorderedfile();
-            //aperture.showaperture();
             readabsorbed();
             if(dontusesix==0 && maketordered==0){
                 updateCollimators();
                 for(int i=1; i<=2; i++){
-                    //updateCollimators();
-                    //collListIt=collList.begin();
-                    //cout << collListIt->getSfront() << " " << collListIt->getSback() << endl;
                     sprintf(particlefile, "%s%u%s", "particle",i,".dat");
                     trackrun(particlefile);
                 }
             }
             else {
                 updateCollimators();
-                //collListIt=collList.begin();
-                //cout << collListIt->getSfront() << " " << collListIt->getSback() << endl;
                 trackrun(orderedtrack);
             }
             makeoutput();
@@ -445,19 +437,10 @@ public:
         vector<STabs>::iterator abspit=abspid.begin();
         list<allcolls>::iterator collit=collList.begin();
         abspit=abspid.begin();
-        //double temp2;
-        //while(abspit!=abspid.end()){
-        //    temp2=*abspit;
-        //    cout << temp2 << endl;
-        //    abspit++;
-        //}
         abspit=find(abspid.begin(),abspid.end(),STabs(checker));
         temp=abspit->getPID();
-        //cout << abspit->getPID();
         int ret=0;
         if(temp==checker){
-            //check which collimator and delete element
-
             collit=collList.begin();
             while(collit!=collList.end() && ret==0){
                 ret=collit->absorbedInColl(abspit->getPosition());
@@ -469,7 +452,7 @@ public:
             return ret;
         }
         else {
-            return 0;
+            return 0;//will be implemented later
             if(sw==2){
                 while(collit!=collList.end() && ret==0){
                     if(collit->findColl(slast,sact)==1){
